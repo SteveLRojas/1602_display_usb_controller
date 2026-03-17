@@ -23,6 +23,10 @@
 
 int main()
 {
+	UINT8 prev_reset_typ;
+	UINT16 com_wdog_count = 0;
+	UINT16 com_wdog_limit = 0;
+	
 	UINT8 prev_control_line_state;
 	UINT8 datagram[2];
 	UINT16 bytes_available;
@@ -35,6 +39,7 @@ int main()
 	UINT8 brightness_r = 127;
 	UINT8 brightness_g = 127;
 	UINT8 brightness_b = 127;
+	UINT8 power_state = ST7066_DISP_ON_OFF_DISP_ON;
 	
 	rcc_set_clk_freq(RCC_CLK_FREQ_24M);
 	
@@ -50,6 +55,13 @@ int main()
 	timer_set_period(TIMER_0, FREQ_SYS / 1000ul);	//period is 1ms
 	EA = 1;	//enable interupts
 	E_DIS = 0;
+	
+	prev_reset_typ = RESET_KEEP;
+	RESET_KEEP = rcc_get_rst_typ();
+	if((RESET_KEEP == RCC_RST_TYP_WDOG) || (RESET_KEEP == RCC_RST_TYP_SOFT))
+	{
+		rcc_delay_ms(500);
+	}
 	
 	cdc_init();
 	cdc_set_serial_state(CDC_SS_TXCARRIER | CDC_SS_RXCARRIER);
@@ -116,8 +128,23 @@ int main()
 					st7066_write_char(datagram[1]);
 					cursor_col += 1;
 					break;
+				
+				case 0x14:
+					power_state = datagram[1] & (ST7066_DISP_ON_OFF_DISP_ON | ST7066_DISP_ON_OFF_CURS_ON | ST7066_DISP_ON_OFF_BLINK_ON);
+					st7066_send_command(ST7066_COM_DISP_ON_OFF | power_state);
+					break;
+				case 0x16:
+					com_wdog_limit &= 0xFF00;
+					com_wdog_limit |= datagram[1];
+					break;
+				case 0x17:
+					com_wdog_limit &= 0x00FF;
+					com_wdog_limit |= ((UINT16)datagram[1]) << 8;
+					break;
 				default: ;
 			}
+			
+			com_wdog_count = 0;
 		}
 		else if(bytes_available && !(temp & 0x80))	//handle read datagram
 		{
@@ -176,14 +203,32 @@ int main()
 				case 0x0F:
 					datagram[0] = brightness_b;
 					break;
+				
+				case 0x14:
+					datagram[0] = power_state;
+					break;
+				case 0x15:
+					datagram[0] = prev_reset_typ | (RESET_KEEP >> 4);
+					break;
+				case 0x16:
+					datagram[0] = (UINT8)com_wdog_limit;
+					break;
+				case 0x17:
+					datagram[0] = (UINT8)(com_wdog_limit >> 8);
 				default: ;
 			}
 			
 			cdc_write_byte(datagram[0]);
+			com_wdog_count = 0;
 		}
 		else if(bytes_available)	//datagrams not received in a single transfer are ignored
 		{
 			cdc_read_bytes(datagram, bytes_available);	//get rid of the extra bytes
+		}
+		
+		if(com_wdog_limit && com_wdog_limit == com_wdog_count)
+		{
+			rcc_soft_reset();
 		}
 		
 		if(timer_overflow_counts[TIMER_0])
@@ -201,6 +246,7 @@ int main()
 				gpio_clear_pin(GPIO_PORT_3, GPIO_PIN_3);
 			
 			pwm_count += 0x10;
+			com_wdog_count += 1;
 		}
 		
 		if(prev_control_line_state != cdc_control_line_state)

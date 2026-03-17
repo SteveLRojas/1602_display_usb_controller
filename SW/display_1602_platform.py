@@ -1,11 +1,20 @@
 import serial
 import serial.tools.list_ports
 import time
-from queue import Queue
 import display_1602_regs as regs
 
 baud = 1000000
 ser = serial.Serial()
+
+num_columns = 0
+num_rows = 0
+
+bouncy_text = []
+bouncy_len = []
+bouncy_text_area = []
+bouncy_max_offset = []
+bouncy_offset = []
+bouncy_dir = []
 
 def write_reg(address, value):
     address = address | 0x80
@@ -32,38 +41,108 @@ def get_unique_id():
     response = (response << 8) | read_reg(regs.R_UNIQUE_ID_LL)
     return response
 
+# def write_string(string):
+#     num_columns = read_reg(regs.R_NUM_COLUMNS)
+#     num_rows = read_reg(regs.R_NUM_ROWS)
+#     current_column = read_reg(regs.R_CURSOR_COL)
+#     current_row = read_reg(regs.R_CURSOR_ROW)
+
+#     for char in string:
+#         if char == '\n':
+#             current_column = 0
+#             current_row += 1
+#             if current_row >= num_rows:
+#                 break
+#             write_reg(regs.R_CURSOR_COL, current_column)
+#             write_reg(regs.R_CURSOR_ROW, current_row)
+#             continue
+
+#         # If we reach the end of the line, move to the next one
+#         if current_column >= num_columns:
+#             current_column = 0
+#             current_row += 1
+
+#             # Stop if we reach the bottom of the display
+#             if current_row >= num_rows:
+#                 break
+
+#             write_reg(regs.R_CURSOR_COL, current_column)
+#             write_reg(regs.R_CURSOR_ROW, current_row)
+
+#         write_reg(regs.R_WRITE_CHAR, ord(char))
+#         current_column += 1
+
 def write_string(string):
     num_columns = read_reg(regs.R_NUM_COLUMNS)
     num_rows = read_reg(regs.R_NUM_ROWS)
     current_column = read_reg(regs.R_CURSOR_COL)
     current_row = read_reg(regs.R_CURSOR_ROW)
+    bytes = bytearray()
 
     for char in string:
-        if char == '\n':
+        if (char == '\n') or (current_column >= num_columns):
             current_column = 0
             current_row += 1
             if current_row >= num_rows:
                 break
-            write_reg(regs.R_CURSOR_COL, current_column)
-            write_reg(regs.R_CURSOR_ROW, current_row)
-            continue
-
-        # If we reach the end of the line, move to the next one
-        if current_column >= num_columns:
-            current_column = 0
-            current_row += 1
-
-            # Stop if we reach the bottom of the display
-            if current_row >= num_rows:
-                break
-
-            write_reg(regs.R_CURSOR_COL, current_column)
-            write_reg(regs.R_CURSOR_ROW, current_row)
-
-        write_reg(regs.R_WRITE_CHAR, ord(char))
+            bytes.append(regs.R_CURSOR_COL | 0x80)
+            bytes.append(current_column)
+            bytes.append(regs.R_CURSOR_ROW | 0x80)
+            bytes.append(current_row)
+            if char == '\n':
+                continue
+        
+        bytes.append(regs.R_WRITE_CHAR | 0x80)
+        bytes.append(ord(char))
         current_column += 1
+    ser.write(bytes)
+
+def bouncy_init():
+    for d in range(num_rows):
+        bouncy_text.append('')
+        bouncy_len.append(0)
+        bouncy_text_area.append(num_columns)
+        bouncy_max_offset.append(num_columns)
+        bouncy_offset.append(0)
+        bouncy_dir.append(1)
+
+def bouncy_set_string(string, row, num_lines = 0):
+    bouncy_text[row] = string
+    bouncy_len[row] = len(string)
+    lines_used = max((bouncy_len[row] // num_columns + 1), num_lines)
+    bouncy_text_area[row] = lines_used * num_columns
+    bouncy_max_offset[row] = bouncy_text_area[row] - bouncy_len[row]
+    if bouncy_offset[row] > bouncy_max_offset[row]:
+        bouncy_offset[row] = bouncy_max_offset[row]
+        bouncy_dir[row] = -1
+    return lines_used
+
+def bouncy_update(row):
+    pre_padding = ''
+    for d in range(bouncy_offset[row]):
+        pre_padding = pre_padding + ' '
+
+    post_padding = ''
+    for d in range(bouncy_text_area[row] - bouncy_offset[row] - bouncy_len[row]):
+        post_padding = post_padding + ' '
+    
+    bouncy_offset[row] = bouncy_offset[row] + bouncy_dir[row]
+    if bouncy_offset[row] == bouncy_max_offset[row]:
+        bouncy_dir[row] = -1
+    if bouncy_offset[row] == 0:
+        bouncy_dir[row] = 1
+    
+    bytes = bytearray()
+    bytes.append(regs.R_CURSOR_COL | 0x80)
+    bytes.append(0)
+    bytes.append(regs.R_CURSOR_ROW | 0x80)
+    bytes.append(row)
+    ser.write(bytes)
+    write_string(pre_padding + bouncy_text[row] + post_padding)
 
 def init(unique_id):
+    global num_columns
+    global num_rows
     display_ports = []
     ports = serial.tools.list_ports.comports()
     for port in ports:
@@ -90,5 +169,17 @@ def init(unique_id):
         if unique_id and (unique_id != disp_unique_id):
             ser.close()
             continue
+        num_columns = read_reg(regs.R_NUM_COLUMNS)
+        num_rows = read_reg(regs.R_NUM_ROWS)
+        #TODO: power on the display?
         return disp_unique_id
     return 0
+
+def stop():
+    write_reg(regs.R_CLEAR_DISPLAY, 0)
+    write_reg(regs.R_BRIGHTNESS_R, 0)
+    write_reg(regs.R_BRIGHTNESS_G, 0)
+    write_reg(regs.R_BRIGHTNESS_B, 0)
+    #TODO: power off the display?
+    ser.close()
+    
