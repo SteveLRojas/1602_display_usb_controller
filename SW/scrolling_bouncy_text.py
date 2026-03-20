@@ -29,12 +29,28 @@ def main():
 	time.sleep(1.0)
 	disp.write_reg(regs.R_CLEAR_DISPLAY, 0)
 
-	disp.bouncy_init()
-	lines_used = disp.bouncy_set_string('Dragons!', 0, 0)
-	print(f"lines used: {lines_used}")
+    #HINT: Here we assume that none of the strings take multiple lines.
+	disp.bouncy_init(5)
+	disp.bouncy_set_string('Dragons!', 0, 0)
+	disp.bouncy_set_string('Goat', 1, 0)
+	disp.bouncy_set_string('Lion', 2, 0)
+	disp.bouncy_set_string('Pony', 3, 0)
+	disp.bouncy_set_string('Lizard', 4, 0)
+	
+	line = 0
 
+	#Scrolls the entire view out each time
+	# while True:
+	# 	for row in range(disp.num_rows):
+	# 		disp.bouncy_update(line, row)
+	# 		line = (line + 1) % 5
+	# 	time.sleep(1.0)
+	
+	#Scrolls only one line out each time
 	while True:
-		disp.bouncy_update(0)
+		for row in range(disp.num_rows):
+			disp.bouncy_update((line + row) % 5, row)
+		line = (line + 1) % 5
 		time.sleep(1.0)
 
 

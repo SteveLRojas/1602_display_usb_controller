@@ -1,5 +1,6 @@
 import signal
 import time
+from datetime import datetime
 import display_1602_platform as disp
 import display_1602_regs as regs
 
@@ -12,7 +13,7 @@ def main():
 	signal.signal(signal.SIGINT, stop)
 	signal.signal(signal.SIGTERM, stop)
 	
-	unique_id = disp.init(0)
+	unique_id = disp.init(0x2EBDDBAD)
 	if unique_id == 0:
 		print("Could not find display")
 		exit()
@@ -21,7 +22,6 @@ def main():
 	print(f"Unique ID: {disp.get_unique_id():08X}")
 	print(f"Num rows: {disp.num_rows}")
 	print(f"Num columns: {disp.num_columns}")
-	print(f"Reset type: {disp.read_reg(regs.R_RESET_TYP):02X}")
 
 	disp.write_reg(regs.R_CLEAR_DISPLAY, 0)
 	disp.write_string('Lizards rule!')
@@ -29,14 +29,25 @@ def main():
 	time.sleep(1.0)
 	disp.write_reg(regs.R_CLEAR_DISPLAY, 0)
 
-	disp.bouncy_init()
-	lines_used = disp.bouncy_set_string('Dragons!', 0, 0)
-	print(f"lines used: {lines_used}")
-
 	while True:
-		disp.bouncy_update(0)
-		time.sleep(1.0)
+		now = datetime.now()
 
+		# Format date and time
+		date_str = now.strftime("%d.%m.%y")
+		time_str = now.strftime("%H:%M:%S")
+		
+		# disp.write_reg(regs.R_CURSOR_ROW, 0)
+		# disp.write_reg(regs.R_CURSOR_COL, 0)
+		# disp.write_string(date_str + ' ' + time_str)
+
+		disp.write_reg(regs.R_CURSOR_ROW, 0)
+		disp.write_reg(regs.R_CURSOR_COL, 0)
+		disp.write_string(date_str)
+		disp.write_reg(regs.R_CURSOR_ROW, 1)
+		disp.write_reg(regs.R_CURSOR_COL, 0)
+		disp.write_string(time_str)
+
+		time.sleep(1)
 
 if __name__ == "__main__":
 	main()
