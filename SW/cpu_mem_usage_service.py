@@ -1,14 +1,14 @@
 import signal
 import time
 from datetime import datetime
-import requests
+import psutil
 import logging
 import display_1602_platform as disp
 import display_1602_regs as regs
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s"
+	level=logging.INFO,
+	format="%(asctime)s [%(levelname)s] %(message)s"
 )
 log = logging.getLogger(__name__)
 
@@ -16,15 +16,6 @@ def stop(signum = None, frame = None):
 	log.info("Stopping display")
 	disp.stop()
 	exit()
-
-def fetch_weather():
-	try:
-		r = requests.get("https://wttr.in/?format=j1", timeout=5)
-		r.raise_for_status()
-		return r.json()
-	except Exception:
-		log.exception("Failed to fetch weather")
-		return None
 
 def main():
 	signal.signal(signal.SIGINT, stop)
@@ -36,6 +27,9 @@ def main():
 		while unique_id == 0:
 			time.sleep(1.0)
 			unique_id = disp.init(0)
+		
+		if unique_id == 0x2EBDD6AD:
+			disp.write_reg(regs.R_CONTRAST, 0)
 
 		log.info("Device ID: %08X", disp.get_device_id())
 		log.info("Unique ID: %08X", disp.get_unique_id())
@@ -48,7 +42,7 @@ def main():
 
 		time.sleep(1.0)
 		disp.write_reg(regs.R_CLEAR_DISPLAY, 0)
-
+	
 		try:
 			#HINT: Here we assume that none of the strings take more lines.
 			num_strings = 4
@@ -57,9 +51,7 @@ def main():
 				lines_per_string = 2
 			disp.bouncy_init(num_strings)
 
-			time_count = 0
 			line = 0
-
 			while True:
 				now = datetime.now()
 				# Format date and time
@@ -68,27 +60,15 @@ def main():
 				disp.bouncy_set_string('Date: ' + date_str, 0, lines_per_string)
 				disp.bouncy_set_string('Time: ' + time_str, 1, lines_per_string)
 
-				if time_count == 0:
-					data = fetch_weather()
-					if isinstance(data, dict) and "data" in data:
-						data = data["data"]
-					if isinstance(data, dict) and "current_condition" in data:
-						current = data["current_condition"][0]
-						temp = current["temp_C"]
-						condition = current["weatherDesc"][0]["value"]
-					else:
-						temp = "?"
-						condition = "No data"
-
-					condition = condition[:(disp.num_columns * lines_per_string - 1)]
-					disp.bouncy_set_string(f"Temp: {temp}C", 2, lines_per_string)
-					disp.bouncy_set_string(condition, 3, lines_per_string)
+				cpu_percent = psutil.cpu_percent(interval=None)
+				mem_percent = psutil.virtual_memory().percent
+				disp.bouncy_set_string(f"CPU: {cpu_percent}%", 2, lines_per_string)
+				disp.bouncy_set_string(f"Mem: {mem_percent}%", 3, lines_per_string)
 
 				for row in range(disp.num_rows // lines_per_string):
 					disp.bouncy_update((line + row) % num_strings, row * lines_per_string)
 				line = (line + 1) % num_strings
 
-				time_count = (time_count + 1) % 600
 				time.sleep(1.0)
 
 		except Exception as e:
@@ -96,7 +76,6 @@ def main():
 			disp.stop()
 			time.sleep(10.0)
 			continue
-
 
 if __name__ == "__main__":
 	main()
