@@ -25,11 +25,13 @@ volatile UINT8 xdata ep2_t1_buffer[CDC_ENDP2_BUF_SIZE] _at_ 0x0040;
 volatile UINT8 xdata ep3_t0_buffer[CDC_ENDP3_SIZE] _at_ 0x0080;
 volatile UINT8 xdata ep3_t1_buffer[CDC_ENDP3_SIZE] _at_ 0x00C0;
 
-UINT8 ep2_read_select;
+#if CDC_HANDLE_ZLP
 volatile UINT8 ep2_t0_zlp;	//set when a ZLP is received in t0
+volatile UINT8 ep2_t1_zlp;
+#endif
+UINT8 ep2_read_select;
 volatile UINT8 ep2_t0_num_bytes;
 UINT8 ep2_t0_read_offset;
-volatile UINT8 ep2_t1_zlp;
 volatile UINT8 ep2_t1_num_bytes;
 UINT8 ep2_t1_read_offset;
 
@@ -290,7 +292,9 @@ void cdc_on_out(UINT8 ep)
 		if(usb_get_ep2_out_toggle())
 		{
 			ep2_t0_num_bytes = usb_get_rx_len();
+#if CDC_HANDLE_ZLP
 			ep2_t0_zlp = !ep2_t0_num_bytes;
+#endif
 			if(ep2_t1_num_bytes)
 			{
 				usb_set_ep2_out_res(USB_OUT_RES_NAK);
@@ -299,7 +303,9 @@ void cdc_on_out(UINT8 ep)
 		else
 		{
 			ep2_t1_num_bytes = usb_get_rx_len();
+#if CDC_HANDLE_ZLP
 			ep2_t1_zlp = ! ep2_t1_num_bytes;
+#endif
 			if(ep2_t0_num_bytes)
 			{
 				usb_set_ep2_out_res(USB_OUT_RES_NAK);
@@ -618,12 +624,14 @@ void cdc_on_setup(UINT8 ep)
 void cdc_on_rst(void)
 {
 	usb_disable_interrupts(USB_INT_SOF);
-	
-	ep2_read_select = 0;
+
+#if CDC_HANDLE_ZLP
 	ep2_t0_zlp = 0;
+	ep2_t1_zlp = 0;
+#endif
+	ep2_read_select = 0;
 	ep2_t0_num_bytes = 0;
 	ep2_t0_read_offset = 0;
-	ep2_t1_zlp = 0;
 	ep2_t1_num_bytes = 0;
 	ep2_t1_read_offset = 0;
 	
@@ -715,6 +723,7 @@ UINT16 cdc_bytes_available(void)
 
 UINT8 cdc_peek(void)
 {
+#if CDC_HANDLE_ZLP
 	if(ep2_read_select && ep2_t1_zlp)
 	{
 		ep2_t1_zlp = 0;
@@ -727,6 +736,7 @@ UINT8 cdc_peek(void)
 		ep2_read_select = 1;
 		cdc_enable_rx();
 	}
+#endif
 	
 	if(ep2_read_select)
 		return ep2_t1_buffer[ep2_t1_read_offset];
@@ -739,7 +749,7 @@ UINT8 cdc_read_byte(void)
 	UINT8 read_val;
 	
 	while(!cdc_bytes_available());
-	
+#if CDC_HANDLE_ZLP
 	if(ep2_read_select && ep2_t1_zlp)
 	{
 		ep2_t1_zlp = 0;
@@ -752,6 +762,7 @@ UINT8 cdc_read_byte(void)
 		ep2_read_select = 1;
 		cdc_enable_rx();
 	}
+#endif
 	
 	if(ep2_read_select)
 	{
@@ -792,12 +803,14 @@ void cdc_read_bytes(UINT8* dest, UINT16 num_bytes)
 			num_to_read = ep2_t1_num_bytes - ep2_t1_read_offset;
 			if(!num_to_read)
 			{
+#if CDC_HANDLE_ZLP
 				if(ep2_t1_zlp)
 				{
 					ep2_t1_zlp = 0;
 					ep2_read_select = 0;
 					cdc_enable_rx();
 				}
+#endif
 				continue;
 			}
 			if(num_to_read > num_bytes)
@@ -826,12 +839,14 @@ void cdc_read_bytes(UINT8* dest, UINT16 num_bytes)
 			num_to_read = ep2_t0_num_bytes - ep2_t0_read_offset;
 			if(!num_to_read)
 			{
+#if CDC_HANDLE_ZLP
 				if(ep2_t0_zlp)
 				{
 					ep2_t0_zlp = 0;
 					ep2_read_select = 1;
 					cdc_enable_rx();
 				}
+#endif
 				continue;
 			}
 			if(num_to_read > num_bytes)
