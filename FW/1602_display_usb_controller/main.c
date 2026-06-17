@@ -63,12 +63,12 @@ int main()
 		rcc_delay_ms(500);
 	}
 	
+	st7066_init();
+	
 	cdc_init();
 	cdc_set_serial_state(CDC_SS_TXCARRIER | CDC_SS_RXCARRIER);
 	prev_control_line_state = cdc_control_line_state;
 	while(!cdc_config);
-	
-	st7066_init();
 	
 	timer_start(TIMER_0);
 	
