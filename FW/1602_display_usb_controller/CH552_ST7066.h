@@ -9,8 +9,8 @@
 
 #define ST7066_SPI_CLK_DIV	12
 
-#define ST7066_NUM_COLUMNS	16
-#define ST7066_NUM_ROWS		2
+#define ST7066_NUM_COLUMNS	20
+#define ST7066_NUM_ROWS		4
 
 //HINT: All timing parameters are in us
 #define ST7066_E_PULSE_TIM		0
