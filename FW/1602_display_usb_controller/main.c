@@ -62,6 +62,10 @@ int main()
 	{
 		rcc_delay_ms(500);
 	}
+	else
+	{
+		rcc_delay_ms(15);	//needed for some display modules
+	}
 	
 	st7066_init();
 	
