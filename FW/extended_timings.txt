@@ -1,9 +1,9 @@
 I have one crappy old display which refuses to work with the normal timings.
 Here are some timing settings that make it work:
 #define ST7066_E_PULSE_TIM		1
-#define ST7066_FN_SET_INIT0_TIM	4100
-#define ST7066_FN_SET_INIT1_TIM	100
-#define ST7066_CLEAR_DISP_TIM	1700
-#define ST7066_RETURN_HOME_TIM	1700
-#define ST7066_WRITE_DATA_TIM	60
-#define ST7066_DEFAULT_CMD_TIM	60
+#define ST7066_FN_SET_INIT0_TIM	8000
+#define ST7066_FN_SET_INIT1_TIM	200
+#define ST7066_CLEAR_DISP_TIM	3000
+#define ST7066_RETURN_HOME_TIM	3000
+#define ST7066_WRITE_DATA_TIM	80
+#define ST7066_DEFAULT_CMD_TIM	80
