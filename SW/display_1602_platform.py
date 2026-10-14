@@ -127,10 +127,14 @@ def init(unique_id):
 	ser.write_timeout = 1.0
 
 	for disp_port in display_ports:
-		ser.port = disp_port
-		ser.open()
-		time.sleep(0.5)
-		ser.reset_input_buffer()
+		try:
+			ser.port = disp_port
+			ser.exclusive = True
+			ser.open()
+			time.sleep(0.5)
+			ser.reset_input_buffer()
+		except Exception:
+			continue
 
 		device_id = get_device_id()
 		if device_id != 0x32303631:
