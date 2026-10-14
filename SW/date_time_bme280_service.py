@@ -13,15 +13,15 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-def stop(signum = None, frame = None):
-	log.info("Stopping display")
-	disp.stop()
-	exit()
-
 conf_db_path = None
 conf_interval = None
 conf_unique_id = None
 conf_contrast = None
+
+def stop(signum = None, frame = None):
+	log.info("Stopping display")
+	disp.stop()
+	exit()
 
 def get_local_weather():
 	"""
@@ -59,6 +59,8 @@ def get_local_weather():
 def main():
 	global conf_db_path
 	global conf_interval
+	global conf_unique_id
+	global conf_contrast
 	
 	signal.signal(signal.SIGINT, stop)
 	signal.signal(signal.SIGTERM, stop)

@@ -2,6 +2,7 @@ import signal
 import time
 from datetime import datetime
 import psutil
+import configparser
 import logging
 import display_1602_platform as disp
 import display_1602_regs as regs
@@ -21,15 +22,29 @@ def main():
 	signal.signal(signal.SIGINT, stop)
 	signal.signal(signal.SIGTERM, stop)
 
+	# Set up the configuration parser
+	config = configparser.ConfigParser()
+	config.read('config.ini')
+
+	# Get the path from the [settings] section, with a fallback
+	conf_unique_id = config.get('settings', 'unique_id', fallback=0)
+	conf_unique_id = int(conf_unique_id, 16)
+	conf_contrast = config.getint('settings', 'contrast', fallback=45)
+	conf_brightness_r = config.getint('settings', 'brightness_r', fallback=127)
+	conf_brightness_g = config.getint('settings', 'brightness_g', fallback=127)
+	conf_brightness_b = config.getint('settings', 'brightness_b', fallback=127)
+
 	while True:
 		log.info("Connecting to display")
-		unique_id = disp.init(0)
+		unique_id = disp.init(conf_unique_id)
 		while unique_id == 0:
 			time.sleep(1.0)
-			unique_id = disp.init(0)
+			unique_id = disp.init(conf_unique_id)
 		
-		if unique_id == 0x2EBDD6AD:
-			disp.write_reg(regs.R_CONTRAST, 0)
+		disp.write_reg(regs.R_CONTRAST, conf_contrast)
+		disp.write_reg(regs.R_BRIGHTNESS_R, conf_brightness_r)
+		disp.write_reg(regs.R_BRIGHTNESS_G, conf_brightness_g)
+		disp.write_reg(regs.R_BRIGHTNESS_B, conf_brightness_b)
 
 		log.info("Device ID: %08X", disp.get_device_id())
 		log.info("Unique ID: %08X", disp.get_unique_id())
