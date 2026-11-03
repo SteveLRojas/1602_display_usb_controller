@@ -4,7 +4,7 @@ import display_1602_platform as disp
 import display_1602_regs as regs
 
 def main():
-	unique_id = disp.init(0x2EBDDBAD)
+	unique_id = disp.init(0)
 	if unique_id == 0:
 		print("Could not find display")
 		exit()
