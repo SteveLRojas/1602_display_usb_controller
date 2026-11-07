@@ -178,12 +178,16 @@ def main():
                     weather = fetch_weather(conf_latitude, conf_longitude)
                     if weather is not None:
                         temp, condition = weather
+                        try:
+                            temp = f"{float(temp):.1f}"
+                        except (TypeError, ValueError):
+                            temp = "?"
                     else:
                         temp = "?"
                         condition = "No data"
 
-                    max_condition_length = disp.num_columns * lines_per_string - 1
-                    condition = str(condition)[:max_condition_length]
+                    max_line_length = disp.num_columns * lines_per_string - 1
+                    condition = str(condition)[:max_line_length]
                     disp.bouncy_set_string(f"Temp: {temp}C", 2, lines_per_string)
                     disp.bouncy_set_string(condition, 3, lines_per_string)
 
